@@ -50,13 +50,13 @@ jobs:
           python .ci/build-default.py
       - name: Build for Android
         env:
-          CONAN_BASE_PROFILE: ${{ env.GITHUB_WORKSPACE }}/profiles/android
+          CONAN_BASE_PROFILE: ${{ github.workspace }}/profiles/android
         run:  |
           python .ci/build-default.py
       - name: Build for macos
         if: startsWith(matrix.os, 'macos')
         env:
-          CONAN_BASE_PROFILE: ${{ env.GITHUB_WORKSPACE }}/profiles/ios
+          CONAN_BASE_PROFILE: ${{ github.workspace }}/profiles/ios
         run:  |
           python .ci/build-macos.py
 
