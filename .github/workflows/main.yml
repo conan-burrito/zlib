@@ -49,8 +49,16 @@ jobs:
         run:  |
           python .ci/build-default.py
       - name: Build for Android
+        if: !startsWith(matrix.os, 'windows')
         env:
           CONAN_BASE_PROFILE: ${{ github.workspace }}/profiles/android
+        run:  |
+          python .ci/build-default.py
+      - name: Build for Android on Windows
+        if: startsWith(matrix.os, 'windows')
+        env:
+          CONAN_BASE_PROFILE: ${{ github.workspace }}/profiles/android
+          CONAN_CMAKE_GENERATOR: Ninja
         run:  |
           python .ci/build-default.py
       - name: Build for iOS
@@ -58,5 +66,5 @@ jobs:
         env:
           CONAN_BASE_PROFILE: ${{ github.workspace }}/profiles/ios
         run:  |
-          python .ci/build-macos.py
+          python .ci/build-ios.py
 
