@@ -43,6 +43,7 @@ class ZlibConan(ConanFile):
         return os.path.join(self.source_folder, 'src')
 
     def source(self):
+        print(self.conan_data["sources"][self.version])
         tools.get(**self.conan_data["sources"][self.version])
         os.rename("{}-{}".format(self.name, self.version), 'src')
         for patch in self.conan_data["patches"][self.version]:

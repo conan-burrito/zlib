@@ -53,7 +53,7 @@ jobs:
           CONAN_BASE_PROFILE: ${{ github.workspace }}/profiles/android
         run:  |
           python .ci/build-default.py
-      - name: Build for macos
+      - name: Build for iOS
         if: startsWith(matrix.os, 'macos')
         env:
           CONAN_BASE_PROFILE: ${{ github.workspace }}/profiles/ios
