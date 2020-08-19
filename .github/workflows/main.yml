@@ -49,7 +49,7 @@ jobs:
         run:  |
           python .ci/build-default.py
       - name: Build for Android
-        if: !startsWith(matrix.os, 'windows')
+        if: ! startsWith(matrix.os, 'windows')
         env:
           CONAN_BASE_PROFILE: ${{ github.workspace }}/profiles/android
         run:  |
