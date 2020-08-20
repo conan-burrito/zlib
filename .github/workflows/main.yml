@@ -7,6 +7,8 @@ env:
   CONAN_STABLE_BRANCH_PATTERN: "release/*"
   CONAN_LOGIN_USERNAME: "${{ secrets.CONAN_LOGIN_USERNAME }}"
   CONAN_PASSWORD: "${{ secrets.CONAN_PASSWORD }}"
+  BINTRAY_USER: "${{ secrets.BINTRAY_USER }}"
+  BINTRAY_PASSWORD: "${{ secrets.BINTRAY_PASSWORD }}"
 
 on:
   push:
@@ -22,12 +24,10 @@ jobs:
       max-parallel: 1
       matrix:
         os:
+          - windows-latest
           - macos-latest
           - ubuntu-latest
-          - windows-latest
     steps:
-      - name: Install Ninja
-        uses: llvm/actions/install-ninja@master
       - name: Checkout code
         uses: actions/checkout@v1
       - name: Checkout profiles
@@ -47,22 +47,19 @@ jobs:
         run:  |
           python .ci/build-default.py
       - name: Build for Android
-        if: ${{ !startsWith(matrix.os, 'windows') }}
         env:
           CONAN_BASE_PROFILE: ${{ github.workspace }}/profiles/android
         run:  |
-          python .ci/build-default.py
-      - name: Build for Android on Windows
-        if: startsWith(matrix.os, 'windows')
-        env:
-          CONAN_BASE_PROFILE: ${{ github.workspace }}/profiles/android
-          CONAN_CMAKE_GENERATOR: Ninja
-        run:  |
-          python .ci/build-default.py
+          python .ci/build-android.py
       - name: Build for iOS
         if: startsWith(matrix.os, 'macos')
         env:
           CONAN_BASE_PROFILE: ${{ github.workspace }}/profiles/ios
         run:  |
           python .ci/build-ios.py
-
+      - name: Push recipe into Bintray
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+            conan remote add bintray-burrito https://api.bintray.com/conan/conan-burrito/main
+            conan user -p ${{ env.BINTRAY_PASSWORD }} -r bintray-burrito ${{ env.BINTRAY_USER }}
+            conan upload -r bintray-burrito ${{ env.CONAN_REFERENCE }}@conan-burrito/stable
