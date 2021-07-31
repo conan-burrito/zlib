@@ -60,7 +60,7 @@ class ZlibConan(ConanFile):
             with tools.chdir("_build"):
                 cmake = CMake(self)
                 cmake.configure(source_folder=self.source_subfolder)
-                cmake.build()
+                cmake.build(target=target_name)
                 cmake.install()
 
     def _rename_libraries(self):
