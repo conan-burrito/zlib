@@ -5,7 +5,6 @@ import os
 
 class ZlibConan(ConanFile):
     name = 'zlib'
-    version = '1.2.11'
     description = 'A Massively Spiffy Yet Delicately Unobtrusive Compression Library ' \
                   '(Also Free, Not to Mention Unencumbered by Patents)'
     homepage = 'http://www.zlib.net'
@@ -21,8 +20,6 @@ class ZlibConan(ConanFile):
     # We make changes in a separate copy of the library sources depending on the `shared` option
     no_copy_source = False
 
-    build_policy = 'missing'
-
     exports_sources = ['patches/*']
 
     def config_options(self):
@@ -30,6 +27,9 @@ class ZlibConan(ConanFile):
             del self.options.fPIC
 
     def configure(self):
+        if self.options.shared:
+            del self.options.fPIC
+
         # It's a C project - remove irrelevant settings
         del self.settings.compiler.libcxx
         del self.settings.compiler.cppstd
@@ -43,8 +43,8 @@ class ZlibConan(ConanFile):
         return os.path.join(self.source_folder, 'src')
 
     def source(self):
-        tools.get(**self.conan_data["sources"][self.version])
-        os.rename("{}-{}".format(self.name, self.version), 'src')
+        tools.get(**self.conan_data["sources"][self.version], destination=self.source_subfolder, strip_root=True)
+
         for patch in self.conan_data["patches"][self.version]:
             tools.patch(**patch)
 

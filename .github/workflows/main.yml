@@ -7,8 +7,6 @@ env:
   CONAN_STABLE_BRANCH_PATTERN: "release/*"
   CONAN_LOGIN_USERNAME: "${{ secrets.CONAN_LOGIN_USERNAME }}"
   CONAN_PASSWORD: "${{ secrets.CONAN_PASSWORD }}"
-  BINTRAY_USER: "${{ secrets.BINTRAY_USER }}"
-  BINTRAY_PASSWORD: "${{ secrets.BINTRAY_PASSWORD }}"
 
 on:
   push:
@@ -43,9 +41,17 @@ jobs:
         run: |
             python -m pip install --upgrade pip setuptools wheel
             pip install conan conan_package_tools
+            conan remote disable conan-center
+            conan config install ${{ github.workspace }}/profiles/settings.yml
       - name: Build native
         run:  |
           python .ci/build-default.py
+      - name: Build WASM
+        if: ${{ ! startsWith(matrix.os, 'windows') }}
+        env:
+          CONAN_BASE_PROFILE: ${{ github.workspace }}/profiles/emscripten
+        run: |
+          python .ci/build-emscripten.py
       - name: Build for Android
         env:
           CONAN_BASE_PROFILE: ${{ github.workspace }}/profiles/android
