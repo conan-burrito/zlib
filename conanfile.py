@@ -49,18 +49,13 @@ class ZlibConan(ConanFile):
             tools.patch(**patch)
 
     def build(self):
-        original_install = 'install(TARGETS zlib zlibstatic'
-        target_name = 'zlib' if self.options.shared else 'zlibstatic'
-        install_text = 'install(TARGETS %s' % target_name
-        tools.replace_in_file(os.path.join(self.source_subfolder, 'CMakeLists.txt'), original_install, install_text)
-
         with tools.chdir(self.source_subfolder):
 
             tools.mkdir("_build")
             with tools.chdir("_build"):
                 cmake = CMake(self)
                 cmake.configure(source_folder=self.source_subfolder)
-                cmake.build(target=target_name)
+                cmake.build(target='zlib')
                 cmake.install()
 
     def _rename_libraries(self):
