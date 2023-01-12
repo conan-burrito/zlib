@@ -9,6 +9,7 @@
 # Python compiled
 *.pyc
 __pycache__
+.mypy_cache
 
 **/build
 

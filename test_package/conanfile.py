@@ -5,7 +5,7 @@ import os
 class Test(ConanFile):
     settings = 'os', 'arch', 'compiler', 'build_type'
 
-    generators = 'cmake'
+    generators = 'cmake', 'CMakeToolchain', 'CMakeDeps'
 
     def configure(self):
         del self.settings.compiler.libcxx

@@ -1,7 +1,7 @@
 name: build
 
 env:
-  CONAN_REFERENCE: "zlib/1.2.11"
+  CONAN_REFERENCE: "zlib/1.2.13"
   CONAN_USERNAME: "conan-burrito"
   CONAN_STABLE_BRANCH_PATTERN: "release/*"
   CONAN_UPLOAD: "${{ secrets.CONAN_UPLOAD }}"

@@ -1,26 +1,33 @@
-from conans import tools, ConanFile, CMake
-
+from conans import ConanFile, tools
+from conan.tools.cmake import CMake, CMakeToolchain, cmake_layout
+from conan.tools.files import apply_conandata_patches, export_conandata_patches, get, load, replace_in_file, save
+from conan.tools.scm import Version
 import os
+
+required_conan_version = ">=1.53.0"
 
 
 class ZlibConan(ConanFile):
     name = 'zlib'
+    package_type = 'library'
     description = 'A Massively Spiffy Yet Delicately Unobtrusive Compression Library ' \
                   '(Also Free, Not to Mention Unencumbered by Patents)'
     homepage = 'http://www.zlib.net'
     license = 'Zlib'
     url = 'https://github.com/conan-burrito/zlib'
 
-    generators = 'cmake'
-
     settings = 'os', 'arch', 'compiler', 'build_type'
     options = {'shared': [True, False], 'fPIC': [True, False]}
     default_options = {'shared': False, 'fPIC': True}
 
-    # We make changes in a separate copy of the library sources depending on the `shared` option
-    no_copy_source = False
 
-    exports_sources = ['patches/*']
+    @property
+    def _is_mingw(self):
+        return self.settings.os == "Windows" and self.settings.compiler == "gcc"
+
+    def export_sources(self):
+        export_conandata_patches(self)
+        self.copy('*.tar.gz', src='src', dst='src')
 
     def config_options(self):
         if self.settings.os == "Windows":
@@ -28,64 +35,71 @@ class ZlibConan(ConanFile):
 
     def configure(self):
         if self.options.shared:
-            del self.options.fPIC
+            self.options.rm_safe("fPIC")
+        self.settings.rm_safe("compiler.libcxx")
+        self.settings.rm_safe("compiler.cppstd")
 
-        # It's a C project - remove irrelevant settings
-        del self.settings.compiler.libcxx
-        del self.settings.compiler.cppstd
-
-    @property
-    def zip_folder_name(self):
-        return 'zlib-%s' % self.zlib_version
-
-    @property
-    def source_subfolder(self):
-        return os.path.join(self.source_folder, 'src')
+    def layout(self):
+        cmake_layout(self, src_folder="src")
 
     def source(self):
-        tools.get(**self.conan_data["sources"][self.version], destination=self.source_subfolder, strip_root=True)
+        tarfile = os.path.join(self.source_folder, self.conan_data["sources"][self.version]["url"])
+        print(tarfile)
+        tools.untargz(tarfile, self.source_folder, strip_root=True)
 
-        for patch in self.conan_data["patches"][self.version]:
-            tools.patch(**patch)
+    def generate(self):
+        tc = CMakeToolchain(self)
+        tc.variables["SKIP_INSTALL_ALL"] = False
+        tc.variables["SKIP_INSTALL_LIBRARIES"] = False
+        tc.variables["SKIP_INSTALL_HEADERS"] = False
+        tc.variables["SKIP_INSTALL_FILES"] = True
+        # Correct for misuse of "${CMAKE_INSTALL_PREFIX}/" in CMakeLists.txt
+        tc.variables["INSTALL_LIB_DIR"] = "lib"
+        tc.variables["INSTALL_INC_DIR"] = "include"
+        tc.generate()
+
+    def _patch_sources(self):
+        apply_conandata_patches(self)
+
+        is_apple_clang12 = self.settings.compiler == "apple-clang" and Version(self.settings.compiler.version) >= "12.0"
+        if not is_apple_clang12:
+            for filename in ['zconf.h', 'zconf.h.cmakein', 'zconf.h.in']:
+                filepath = os.path.join(self.source_folder, filename)
+                replace_in_file(self, filepath,
+                                      '#ifdef HAVE_UNISTD_H    '
+                                      '/* may be set to #if 1 by ./configure */',
+                                      '#if defined(HAVE_UNISTD_H) && (1-HAVE_UNISTD_H-1 != 0)')
+                replace_in_file(self, filepath,
+                                      '#ifdef HAVE_STDARG_H    '
+                                      '/* may be set to #if 1 by ./configure */',
+                                      '#if defined(HAVE_STDARG_H) && (1-HAVE_STDARG_H-1 != 0)')
 
     def build(self):
-        with tools.chdir(self.source_subfolder):
+        self._patch_sources()
+        cmake = CMake(self)
+        cmake.configure()
+        cmake.build()
 
-            tools.mkdir("_build")
-            with tools.chdir("_build"):
-                cmake = CMake(self)
-                cmake.configure(source_folder=self.source_subfolder)
-                cmake.build(target='zlib')
-                cmake.install()
-
-    def _rename_libraries(self):
-        if self.settings.os == "Windows":
-            lib_path = os.path.join(self.package_folder, "lib")
-
-            if not self.options.shared:
-                if self.settings.compiler == "Visual Studio":
-                    current_lib = os.path.join(lib_path, "zlibstatic.lib")
-                    os.rename(current_lib, os.path.join(lib_path, "zlib.lib"))
-                elif self.settings.compiler == "gcc":
-                    current_lib = os.path.join(lib_path, "libzlibstatic.a")
-                    os.rename(current_lib, os.path.join(lib_path, "libzlib.a"))
-                elif self.settings.compiler == "clang":
-                    current_lib = os.path.join(lib_path, "zlibstatic.lib")
-                    os.rename(current_lib, os.path.join(lib_path, "zlib.lib"))
+    def _extract_license(self):
+        tmp = load(self, os.path.join(self.source_folder, "zlib.h"))
+        license_contents = tmp[2:tmp.find("*/", 1)]
+        return license_contents
 
     def package(self):
-        # Extract the License/s from the header to a file
-        with tools.chdir(self.source_subfolder):
-            tmp = tools.load("zlib.h")
-            license_contents = tmp[2:tmp.find("*/", 1)]
-            tools.save("LICENSE", license_contents)
-
-        # Copy the license files
-        self.copy("LICENSE", src=self.source_subfolder, dst="licenses")
-        self._rename_libraries()
+        save(self, os.path.join(self.package_folder, "licenses", "LICENSE"), self._extract_license())
+        cmake = CMake(self)
+        cmake.install()
 
     def package_info(self):
-        self.cpp_info.libs.append('zlib' if self.settings.os == "Windows" else "z")
-        self.cpp_info.names["cmake_find_package"] = "zlib"
-        self.cpp_info.names["cmake_find_package_multi"] = "zlib"
+        self.cpp_info.set_property("cmake_find_mode", "both")
+        self.cpp_info.set_property("cmake_file_name", "ZLIB")
+        self.cpp_info.set_property("cmake_target_name", "ZLIB::ZLIB")
+        self.cpp_info.set_property("pkg_config_name", "zlib")
+        if self.settings.os == "Windows" and not self._is_mingw:
+            libname = "zdll" if self.options.shared else "zlib"
+        else:
+            libname = "z"
+        self.cpp_info.libs = [libname]
 
+        self.cpp_info.names["cmake_find_package"] = "ZLIB"
+        self.cpp_info.names["cmake_find_package_multi"] = "ZLIB"
